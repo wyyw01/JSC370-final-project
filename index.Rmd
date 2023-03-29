@@ -1,6 +1,6 @@
 ---
 title: "JSC370 Final Project"
-author: "Your Name"
+author: "Wei Yu"
 output: 
     html_document:
         toc: TRUE
