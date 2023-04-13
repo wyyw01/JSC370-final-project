@@ -1,5 +1,5 @@
 ---
-title: "JSC370 Final Project"
+title: "JSC370 Final Project: analysis on covid19 data. (Currently it is only hw5 added on top of lab12)"
 author: "Wei Yu"
 output: 
     html_document:
@@ -108,6 +108,113 @@ p1_scatter
 
 ```{r p2}
 p2_scatter
+```
+
+
+
+### hw5: Using my midterm/final project data, create 3 different interactive visualizations using the tools learned in week 11 class/lab.
+```{r}
+hosp_icu <- read.csv('hosp_icu_c19_breakdown.csv')
+deaths_data <- read.csv('deaths_fatality_type.csv')
+```
+
+```{r}
+# hosp_icu$date <- as.Date(hosp_icu$date, format = "%Y/%m/%d")
+# deaths_data$date <- as.Date(deaths_data$date, format = "%Y/%m/%d")
+hosp_death <- merge(hosp_icu, deaths_data, by = 'date')
+# hosp_death
+```
+
+```{r}
+hosp_death$total_death_level <- ifelse(hosp_death$deaths_total <= 10, 1,
+          ifelse(hosp_death$deaths_total <= 20, 2,
+          ifelse(hosp_death$deaths_total <= 30, 3,
+          ifelse(hosp_death$deaths_total <= 40, 4, 
+          ifelse(hosp_death$deaths_total <= 50, 5, 6)))))
+
+
+```
+
+```{r}
+outbreak <- read.csv('activeltcoutbreak.csv')
+```
+
+
+```{r}
+# write.csv(hosp_death, "hosp_death.csv", row.names = TRUE)
+
+```
+
+
+```{r}
+library(plotly)
+plot_ly(
+  hosp_death,
+  x = ~ hosp_for_covid,
+  y = ~ icu_for_covid,
+  color = ~ total_death_level,
+  size = ~ death_covid,
+  type = "scatter",
+  sizes = c(5, 1000),
+  marker = list(sizemode = "area", opacity = .8)
+)
+```
+
+
+```{r}
+outbreak <- read.csv('activeltcoutbreak.csv')
+```
+
+```{r}
+outbreak$hcw_level <- ifelse(outbreak$Total_LTC_HCW_Cases >= 50, 6,
+          ifelse(outbreak$Total_LTC_HCW_Cases >= 40, 5,
+          ifelse(outbreak$Total_LTC_HCW_Cases >= 30, 4,
+          ifelse(outbreak$Total_LTC_HCW_Cases >= 20, 3, 
+          ifelse(outbreak$Total_LTC_HCW_Cases >= 10, 2, 1)))))
+```
+
+```{r}
+# outbreak
+```
+
+    trans = "log", 
+
+```{r}
+plt_smooth <- ggplot(
+  outbreak,
+  aes(x = Beds, y = Total_LTC_Resident_Cases)
+) +
+  theme_minimal() +
+  geom_smooth() +
+  geom_point(aes(colour = City, size = hcw_level)) +
+  scale_x_continuous(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = c(1, 10, 100, 1000, 10000)
+  )
+ggplotly(plt_smooth)
+```
+
+
+```{r}
+plot_ly(
+  outbreak,
+  x = ~ Report_Data_Extracted,
+  y = ~ Beds,
+  color = ~ City,
+  mode = "lines"
+)
+```
+
+
+
+
+
+
+
+
+
+
+
 ```
 
 ## {-}
