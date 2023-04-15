@@ -13,6 +13,220 @@ This is my JSC370 Final Project website. I will showcase a few interactive visua
 
 <br>
 
+# Introduction
+Since covid19 has made a widewide large influence for its duration and propogation,
+I want to work on covid19 data to gain more insight for the virus and its influence for different people. As advised and guided by the course website, I found some data from Toronto open data about covid19 cases, with columns including_id, Assigned_ID, Outbreak Associated, Age Group, Neighbourhood Name, FSA, Source of Infection, Classification, Episode Date, Reported Date, Client Gender, Outcome, Ever Hospitalized, Ever in ICU, Ever Intubated
+from https://open.toronto.ca/dataset/covid-19-cases-in-toronto/.
+I want to explore the relationship between the severity of covid19 of each patient and the
+age, source of infection, neighbourhood, etc. (I plan to evaluate the severity by if ever
+hospitalized, if ever in ICU, if ever intubated, which I want to assign some value by danger
+level and use the sum to be the severity of each patient). However, I do not think that gives
+me the full picture especially since I still need to filter out some data like I will only use
+confirmed data without the “probable” ones, and Toronto open data does not offer much
+other very meaningful data that I can use. Thus, I want to use some more data at
+https://www.ontario.ca/page/covid-19-coronavirus, from which https://data.ontario.ca/ has
+extracted some data but still the raw data and information are fragmented. I want to combine
+the information from different data including the hospital admissions, data change in cases
+by districts (and I want to compare the difference between districts with the average
+vaccination rates group by districts), data of patients requiring long-term care after getting
+covid etc. I want to answer the following questions:
+1. When and where were people more likely to get covid19?
+2. What builds the “luck” (not getting covid or mild severity if get covid19): age (what
+range), vaccination status (not vaccinated? partially vaccinated? fully vaccinated?), life habits (by source of infection, for example, if behaviors involving crowding contributes a lot, then “otaku” becomes an
+“advantage”.
+
+# Methods
+I filter out the cases lacking of critical information, like I filtered out the cases with "No Information" for source of infection. Most analysis for the midterm project is qualitative analysis, with visualization of graphs, but there are also quantitative analysis used here like with chi-squared test, tables, and directly printed-out values.
+
+# Preliminary Results
+
+
+```{r}
+case_data <- read.csv('COVID19 cases.csv')
+# case_data
+```
+
+To begin with, I add a new column to denote the danger level of each patient after getting covid, and the danger level is calculated based on if the patient has been hospitalized, in icu, or incubated.
+```{r}
+case_data$danger_score <- 0
+case_data$danger_score <- ifelse(case_data$Ever.Hospitalized == "Yes", 1, 0) + 
+              ifelse(case_data$Ever.in.ICU == "Yes", 5, 0) + 
+              ifelse(case_data$Ever.Intubated == "Yes", 10, 0)
+# case_data
+```
+
+By taking the first glance, I see more "dangerous" cases for age groups with higher ages. Thus, I perform chi-squared test to examine if there is a significant difference between different age groups for the danger of infection of covid19 (credits and many thanks to Professor Franklin):
+
+chi-squared test for difference of the danger score of infection of covid between different age groups. Null hypothesis: H0: there is no significant difference between different age groups for the danger level of infection of covid19; alternative hypothesis: Ha: there is significant difference between different age groups for the danger level of infection of covid19.
+```{r}
+chisq.test(table(case_data$Age.Group, case_data$danger_score))
+```
+Since the p-value is too small, I can strongly reject the null hypothesis and take the alternative hypothesis. Thus, there is significant difference for the danger level of infection of covid19 between different age groups. 
+
+Since the danger score is defined by me, to getting rid of objective factors, I perform chi-square tests for each of the factors contributing to the danger level, i.e., the three standards that measure the danger which the patients go through after infection of covid19: if ever hospitalized, if ever in icu, and if ever intubated. 
+1. test for the difference for if ever hospitalized between different age groups:
+Null hypothesis: H0: there is no significant difference between different age groups for the possibility of ever hospitalized after infection of covid19; alternative hypothesis: Ha: there is significant difference between different age groups for the possibility of ever hospitalized after infection of covid19.
+2.test for the difference for if ever in ICU between different age groups:
+Null hypothesis: H0: there is no significant difference between different age groups for the possibility of ever in ICU after infection of covid19; alternative hypothesis: Ha: there is significant difference between different age groups for the possibility of ever in ICU after infection of covid19.
+3. test for the difference for if ever intubated between different age groups:
+Null hypothesis: H0: there is no significant difference between different age groups for the possibility of ever intubated after infection of covid19; alternative hypothesis: Ha: there is significant difference between different age groups for the possibility of ever intubated after infection of covid19.
+
+```{r warning=FALSE}
+print("chi-squared test for ever hospitalized:")
+chisq.test(table(case_data$Age.Group, case_data$Ever.Hospitalized))
+print("chi-squared test for ever in icu:")
+chisq.test(table(case_data$Age.Group, case_data$Ever.in.ICU))
+print("chi-squared test for ever intubated:")
+chisq.test(table(case_data$Age.Group, case_data$Ever.Intubated))
+```
+Since p values for all of the three pvalues are very small, I can strongly reject the null hypotheses and take the alternative hypotheses. Thus, there is significant difference for the possibility of being hospitalized, in icu and incubated after infection of covid19 between different age groups, i.e. different age groups have different level of risk/danger after infection of covid19.
+
+Since age does make a difference on the influence of covid, I will do more analysis on age. Since each age group is a range of age, I want to represent each group by one age value for convenience of analysis. For each group in the middle, I choose the representative age value as the "middle", i.e., the average of the upper bound and lower bound of each group; for the youngest group of people, i.e. "19 and younger", I choose 19 as the representative value and for the group of people with largest age, i.e. "90 and older", I represent the age by 90, since the actual lower and upper bound for this two groups are unknown, like 0-year-old babies are not that likely to be included in this investigation and if the upper bound for the age group with largest group is extremely big (like 200 years old), then the middle age will not be representative.
+```{r}
+library(dplyr)
+if_in_middle <- grepl("to", case_data$Age.Group)
+age_lower <- as.numeric(gsub("^(\\d+).*", "\\1", case_data$Age.Group))
+age_upper <- as.numeric(gsub(".*\\b(\\d+)\\s*Years$", "\\1", case_data$Age.Group))
+temp <- as.numeric(gsub(" and.*", "", case_data$Age.Group))
+case_data$age_represent <- ifelse(!is.na(temp), temp, (age_lower + age_upper) / 2)
+# filter out the rows with na values for age_represent
+# case_data <- case_data |> filter(!is.na(age_represent))
+case_data <- case_data |> filter(!is.na(age_represent))
+# case_data
+```
+
+filter the data to remove NA in the representative age (from checking, the NA is and only is due to missing data at Age.Group, which is very important information for analysis here and should not be missing. The missing data here makes it look very unreliable.)
+
+```{r}
+library(dplyr)
+case_data <- case_data |>
+  filter(!is.na(case_data$age_represent))
+```
+
+
+```{r}
+write.csv(case_data, "changed_case_data.csv", row.names = TRUE)
+```
+
+After wrangling the age group value into more convenient for analysis, I summarize the (representative) age value for different value of danger score (I calculated under the standard of if ever hospitalized, if ever in icu, if ever intubated). 
+```{r}
+library(dplyr)
+summary_for_age <- case_data |>
+  group_by(danger_score) |>
+  summarize(min_age = min(age_represent),
+            max_age = max(age_represent),
+            mean_age = mean(age_represent),
+            median_age = median(age_represent), 
+            mode_age = names(sort(-table(age_represent)))[1])
+summary_for_age
+
+```
+Thus, it can be viewed that for the team with no danger (i.e. the people who have not ever in hospital, icu or intubated after getting covid) whose mean age (about 42), median age (about 34.5) are both young, and the most number of people who were brought no danger by covid after infection had representative age even younger, as only 24.5, i.e. in the age group of "20 to 29 Years", which should be the most safe group among all the age groups. For all the non-zero danger level caused by covid, the mean, median and mode of representative age are all large, i.e., all kinds of "danger" caused by covid prefer to seek the senior citizens. From the summary above, I think it is necessery for the senior citizens to receive extra protection and care for medical and health to go through the potential risk of the left covid viruses. 
+At the same time, I think it worth noticing that all kinds of level can happen to all the age groups since the min and max for the representative age at each group are all 19 and 90, which means that even young people with age "19 and younger" (no kids are counted here since the data were collected starting at 2020) who should be safe can have the most danger score, i.e. having a super dangerous bundled journey of being hospitalized, ICU-treated and intubated, and senior citizens with age "90 and older" can have little influence under infection of covid: even without need to see a doctor. Thus, this should remind us although they are the senior citizens who should be given with the most protection and care, protection measurements should not be totally relieved from any age group of people. 
+
+
+```{r}
+top_100 <- sort(table(case_data$Neighbourhood.Name), decreasing = TRUE)[1:100]
+top_100
+```
+
+For the most frequent ones, Waterfront Communities-The Island have a large portion of senior citizens, Woburn is a family oriented neighbourhood, and other communities are with similar traits. Thus, it can be viewed that the communities with highest frequence of covid19 cases are either with a larger portion of vulnerable people or with higher interaction inside. Thus, probably people who live alone are safer to keep away from covid. 
+
+
+```{r}
+for_covid <- read.csv("hosp_icu_c19_breakdown.csv")
+# for_covid
+```
+
+
+```{r}
+library(ggplot2)
+for_covid$date = as.Date(for_covid$date)
+ggplot(for_covid, aes(x = date)) +
+  theme_minimal() +
+  geom_point(aes(y = hosp_for_covid), color = "red") +
+  geom_line(aes(y = hosp_for_covid), color = "pink") +
+  geom_point(aes(y = icu_for_covid), color = "green") +
+  geom_line(aes(y = icu_for_covid), color = "yellow") +
+  scale_x_date(date_labels = "%m/%d/%Y") + 
+  labs(x = "date", y = "proportion for covid") +
+  ggtitle("proportion for covid") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+The overall trend is decreasing for both hospital and icu for covid. The lower the proportion is, the more "normal" covid becomes: which means people are back to normal at life and things are better. Things are better as time pass by overally and the highest portion of covid for hospital happened at around Febrary, 2022, and dropped after but the proportion of icu treatment for covid did not drop did not drop around April. I guess it was due to the cancel of some travel restrictions at Canada border: As of February 28, 2022 at 12:01 a.m. EST, instead of quarantine, fully-vaccinated travellers, were only be randomly selected for arrival testing. My hypothesis is that they were likely to get covid, which is however not dangerous to them, but the possible propogation of possible viruses carried by them can be dangerous to vurnerable people.
+
+Only consider the observations with known source of infection, i.e., filter out all the observations without known source of infection. 
+```{r}
+cleaned_case <- filter(case_data, Source.of.Infection != "No Information")
+ggplot(cleaned_case, aes(x = Source.of.Infection)) +
+  geom_bar() +
+  xlab("source of Infection") +
+  ylab("frequency") +
+  ggtitle("frequency of each source of Infection") +
+  theme(plot.title = element_text(hjust = 0.4), axis.text.x = element_text(size = 4.2))
+```
+
+
+```{r}
+sum(cleaned_case$Source.of.Infection == "Travel")/length(cleaned_case$Source.of.Infection)
+```
+Thus, travelling only consists a small portion of source of infection (only about 2%), so the travelling restriction shouldn't be a huge problem. Thus, I think the proportion of cases for covid in both hospital and icu in around Febrary is not due to the relief of the travel restriction, but due to the seasonality (credit and many thanks to Professor Franklin!): it can be viewed that in winter a larger portion of cases treated in hospital and icu is for covid. 
+
+From the boxplot, it can be viewed that it is most likely to get covid infection in community, i.e., avoiding crowding in community activities is a good way to stay from infection.
+
+The above restriction relief is for people who are fully-vaccinated and I think it makes sense since they should be protected from the vaccinations. I will then investigate the level of protection given by the vaccinations. 
+
+
+```{r}
+vac_status_data <- read.csv("vac_status_hosp_icu.csv")
+# vac_status_data
+```
+
+```{r}
+library(gridExtra)  
+vac_status_data$date = as.Date(vac_status_data$date)
+for_icu <- ggplot(vac_status_data, aes(x = date)) +
+  theme_minimal() +
+  geom_point(aes(y = icu_unvac), color = "red") +
+  geom_line(aes(y = icu_unvac), color = "pink") +
+  geom_point(aes(y = icu_partial_vac), color = "green") +
+  geom_line(aes(y = icu_partial_vac), color = "yellow") +
+  geom_point(aes(y = icu_full_vac), color = "blue") +
+  geom_line(aes(y = icu_full_vac), color = "purple") +
+  scale_x_date(date_labels = "%m/%d/%Y") + 
+  labs(x = "date", y = "frequency for icu") +
+  ggtitle("frequency for icu") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+for_hosp <- ggplot(vac_status_data, aes(x = date)) +
+  theme_minimal() +
+  geom_point(aes(y = hospitalnonicu_unvac), color = "red") +
+  geom_line(aes(y = hospitalnonicu_unvac), color = "pink") +
+  geom_point(aes(y = hospitalnonicu_partial_vac), color = "green") +
+  geom_line(aes(y = hospitalnonicu_partial_vac), color = "yellow") +
+  geom_point(aes(y = hospitalnonicu_full_vac), color = "blue") +
+  geom_line(aes(y = hospitalnonicu_full_vac), color = "purple") +
+  scale_x_date(date_labels = "%m/%d/%Y") + 
+  labs(x = "date", y = "frequency for hospital") +
+  ggtitle("frequency for hospital") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(for_icu, for_hosp, ncol = 2, widths = c(0.4, 0.4))
+```
+Thus, looking like partially vaccinated are the most safe, but I do not think it is necessary that partial vaccination works better than full vaccination since the current data cannot rule out the possibility that people who are fully vaccinated include those who are the most vulnerable since those people have to seek protection from vaccination as much as possible, and another possibility is that some people may go to hospital because of feeling ill after getting the third vaccination: specifically, since some people who are the most vulnerable to covid viruses show seriously bad response to the third dose, which sent them into hospital and was counted "for the reason of covid", the effect of the fully vaccination include the individual difference covering those people, so I cannot conclude that partial vaccination is the best, better than fully vaccination. Thus, I think although it can be viewed from the graphs above that partially vaccinated people go to hospital /  icu the least frequently, I cannot conclude that partial vaccination is better than fully vaccination. However, I think it is safe to conclude that partial vaccination is better than no vaccination. I will further research on the effect of different kinds of vaccination in my final project.
+
+This graph also verify the seasonality of covid19: there is a huge jump in frequency for both hospital and icu in the winter, which probably means that covid viruses love cold weather and can survive better in lower temperature. Also, according to this graph, even in winter, the covid19-burst season, frequency for both hospital and icu for the people who are partially vaccinated are increased by the fewest among the three groups. Thus, I advise people, who are not sure if the third dose is suitable for them especially if they have some chronic health problem, to receive partial vaccination, which can effectively protect them. 
+
+
+
+
+# Summary about what you found so far from your data in terms of the formulated question
+1. When and where were people more likely to get covid19?
+People are more likely to get covid19 in winter, in community (crowded) activities and if they live in communities with more inter-personal interactions. 
+2. What builds the “luck” (not getting covid or mild severity if get covid19): 
+There is significant difference between danger level of infection (according to both the danger score, and each of the seperate measuring standards including if ever hospitalized, if ever in icu and if ever intubated). Younger people (especially from age group of between 20 and 29, like us) are more likely to stay away from covid, since all group of non-zero danger level of infection of covid19 have the median, mean and mode of representative age to fall in range of age of senior citizens. However, every kind of age group has the possibility for both no risk and the highest danger risk, so I suggest protection measurements to maintain for all age groups but emphasize on the group of senior citizens. It looks like partially vaccination status is the most safe status generally, according to frequency for hospital and icu, but I do not think it can be concluded that partial vaccination is necessarily better than full vaccination, but I think it is safer to crowd generally, especially to those with basic health conditions. People who live along or do not participate in crowded community activies are safer to, which mean “otaku” may become an “advantage”.
+
 ```{r setup, message=FALSE, echo=FALSE, warning=FALSE}
 
 library(data.table)
